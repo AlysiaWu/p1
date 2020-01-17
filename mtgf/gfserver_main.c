@@ -81,12 +81,6 @@ int main(int argc, char **argv) {
     nthreads = 1;
   }
 
-	if (content_delay > 5000) {
-		fprintf(stderr, "Content delay must be less than 5000 (ms)\n");
-		exit(__LINE__);
-	}
-
-
   content_init(content_map);
 
   /* Initialize thread management */
