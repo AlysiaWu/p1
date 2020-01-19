@@ -8,7 +8,7 @@
 "  -t [nthreads]       Number of threads (Default: 5)\n"                      \
 "  -p [listen_port]    Listen port (Default: 20502)\n"                         \
 "  -m [content_file]   Content file mapping keys to content files\n"          \
-"  -d [delay]          Delay in content_get (Default is 0, Range is 0-5000 (ms)\n "	\
+"  -d [delay]          Delay in content_get, default 0, range 0-5000000 (microseconds)\n "	\
 "  -h                  Show this help message.\n"                             \
 
 /* OPTIONS DESCRIPTOR ====================================================== */
@@ -80,6 +80,11 @@ int main(int argc, char **argv) {
   if (nthreads < 1) {
     nthreads = 1;
   }
+
+	if (content_delay > 5000) {
+		fprintf(stderr, "Content delay must be less than 5000000 (microseconds)\n");
+		exit(__LINE__);
+	}
 
   content_init(content_map);
 
