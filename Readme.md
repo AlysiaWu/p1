@@ -30,7 +30,7 @@ rubric.
 
 Note: because Georgia Tech now requires two factor authentication you will need
 to obtain a special token for submitting your code.  See [https://bonnie.udacity.com/auth_tokens/two_factor](https://bonnie.udacity.com/auth_tokens/two_factor) for information on how to obtain and store this token.  
-Once you have done soyou will be able to submit for **all** projects in this course.
+Once you have done so you will be able to submit for **all** projects in this course.
 
 After submitting, you may double-check the results of your submission by
 visiting the [Udacity/GT autograding website](https://bonnie.udacity.com) and
