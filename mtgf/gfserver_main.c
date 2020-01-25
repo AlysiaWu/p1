@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
     nthreads = 1;
   }
 
-	if (content_delay > 5000) {
+	if (content_delay > 5000000) {
 		fprintf(stderr, "Content delay must be less than 5000000 (microseconds)\n");
 		exit(__LINE__);
 	}
