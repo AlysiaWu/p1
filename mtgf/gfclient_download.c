@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
   setbuf(stdout, NULL); // disable caching
 
   // Parse and set command line arguments
-  while ((option_char = getopt_long(argc, argv, "t:n:h:s:w:rp:", gLongOptions, NULL)) != -1) {
+  while ((option_char = getopt_long(argc, argv, "t:n:h:s:w:r:p:", gLongOptions, NULL)) != -1) {
     switch (option_char) {
       case 'h': // help
         Usage();
