@@ -440,7 +440,7 @@ $ python submit.py readme
 
 from the top directory (where your readme-student.md or readme-student.pdf is located).
 The script will **only** submit files with those names - if you call your file `my-really-cool-readme.docx` _it will not be submitted_.  The script will upload one or
-both files (`student-readme.{md,pdf}`) to Bonnie.  If both are present, we will use the
+both files (`readme-student.{md,pdf}`) to Bonnie.  If both are present, we will use the
 PDF version for grading.  If only one is present, we will grade that version.
 
 **NOTE:** This is your opportunity to clearly document your reference materials.
