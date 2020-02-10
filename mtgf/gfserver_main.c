@@ -31,6 +31,75 @@ static void _sig_handler(int signo){
   }
 }
 
+
+/* Global variables for thread and task management */
+pthread_t *worker_threads;
+typedef struct ClientRequest {
+    gfcontext_t* ctx;
+    char* path;
+    void* arg;
+} ClientRequest;
+steque_t* client_request_queue;
+pthread_mutex_t request_queue_mutex; // for client_request_queue
+pthread_cond_t request_queue_cv;
+
+
+/* Queue client request */
+void queue_client_request(ClientRequest* client_request) {
+    pthread_mutex_lock(&request_queue_mutex);
+
+    steque_enqueue(client_request_queue, (steque_item)client_request);
+
+    printf("[Main] -- enqueue request: %s\n", client_request->path);
+
+    pthread_mutex_unlock(&request_queue_mutex);
+
+    // Signal workers that there is a new task queued
+    pthread_cond_broadcast(&request_queue_cv);
+}
+
+/* Client request handler */
+ssize_t client_request_handler(gfcontext_t *ctx, char *path, void *arg) {
+    ClientRequest* client_request = (ClientRequest*)malloc(sizeof(ClientRequest));
+
+    client_request->ctx = ctx;
+    client_request->path = path;
+    client_request->arg = arg;
+
+    queue_client_request(client_request);
+
+    return 0;
+}
+
+/* Work thread task function */
+void *assign_worker_to_task(void *arg) {
+    long thread_id;
+
+    thread_id = (long)arg;
+
+    printf("[Worker thread #%ld] -- created\n", thread_id);
+
+    for(;;) {
+        pthread_mutex_lock(&request_queue_mutex);
+
+        while(steque_size(client_request_queue) == 0) {
+            printf("[Worker thread #%ld] -- waiting\n", thread_id);
+            pthread_cond_wait(&request_queue_cv, &request_queue_mutex);
+        }
+
+        ClientRequest* request = (ClientRequest*)steque_pop(client_request_queue);
+        pthread_mutex_unlock(&request_queue_mutex);
+
+        printf("[Worker thread #%ld] -- received request_path: %s\n", thread_id, request->path);
+
+        if (handler_get(request->ctx, request->path, request->arg) < 0) {
+            printf("[Worker thread #%ld] -- error during handling request\n", thread_id);
+        }
+
+        free(request);
+    }
+}
+
 /* Main ========================================================= */
 int main(int argc, char **argv) {
   int option_char = 0;
@@ -89,6 +158,11 @@ int main(int argc, char **argv) {
   content_init(content_map);
 
   /* Initialize thread management */
+   // Initialize global variables related to worker and task queue management
+    pthread_mutex_init(&request_queue_mutex, NULL);
+    pthread_cond_init(&request_queue_cv, NULL);
+    client_request_queue = (steque_t*) malloc(sizeof(steque_t));
+    steque_init(client_request_queue);
 
   /*Initializing server*/
   gfs = gfserver_create();

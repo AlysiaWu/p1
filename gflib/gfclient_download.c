@@ -31,7 +31,7 @@ static void Usage() {
 
 static void localPath(char *req_path, char *local_path){
   static int counter = 0;
-
+  // printf('req_path %s\n', req_path);
   snprintf(local_path, PATH_BUFFER_SIZE, "%s_%06d", &req_path[1], counter++);
 }
 
@@ -123,14 +123,14 @@ int main(int argc, char **argv) {
   /*Making the requests...*/
   for(i = 0; i < nrequests; i++){
     req_path = workload_get_path();
-
+    printf("00 req_path %s\n", req_path);
     if(strlen(req_path) > 256){
       fprintf(stderr, "Request path exceeded maximum of 256 characters\n.");
       exit(EXIT_FAILURE);
     }
 
     localPath(req_path, local_path);
-
+    printf("local path---  %s\n", local_path);
     file = openFile(local_path);
 
     gfr = gfc_create();
