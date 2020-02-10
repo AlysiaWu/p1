@@ -31,7 +31,6 @@ static void Usage() {
 
 static void localPath(char *req_path, char *local_path){
   static int counter = 0;
-  // printf('req_path %s\n', req_path);
   snprintf(local_path, PATH_BUFFER_SIZE, "%s_%06d", &req_path[1], counter++);
 }
 
@@ -79,7 +78,7 @@ int main(int argc, char **argv) {
 
   int i;
   int option_char = 0;
-  int nrequests = 3;
+  int nrequests = 10;
   int returncode;
   gfcrequest_t *gfr;
   FILE *file;
@@ -130,7 +129,7 @@ int main(int argc, char **argv) {
     }
 
     localPath(req_path, local_path);
-    printf("local path---  %s\n", local_path);
+    printf("local path---%s\n", local_path);
     file = openFile(local_path);
 
     gfr = gfc_create();

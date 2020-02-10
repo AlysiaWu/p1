@@ -18,7 +18,7 @@ typedef struct gfcrequest_t {
 
 void gfc_cleanup(gfcrequest_t **gfr){
     free(*gfr);
-    // free(gfr);
+    *gfr = NULL;
 }
 
 gfcrequest_t *gfc_create(){
@@ -67,7 +67,7 @@ int connect_to_server(gfcrequest_t* gfr) {
         return -1;
     }
 
-    printf("Connected to server.\n");
+    // printf("Connected to server.\n");
 
     return socketfd;
 }
@@ -83,7 +83,7 @@ int send_request_to_server(int socketfd, gfcrequest_t* gfr) {
         return -1;
     }
 
-    printf("Send request: %s\n", request_str);
+    // printf("Send request: %s\n", request_str);
 
     free(request_str);
     return 0;
@@ -115,9 +115,8 @@ size_t read_server_response_header(int socketfd, gfcrequest_t* gfr) {
 
     if ((response_size = read(socketfd, read_buffer, BUFSIZE)) < 0) {
         perror("Error during header read from response\n");
-    }
-    else {
-        printf("Read buffer: %s\n", read_buffer);
+    } else {
+        // printf("Read buffer: %s\n", read_buffer);
         // Parse header
         header_buffer = strtok(read_buffer, "\r\n\r\n");
 
@@ -128,25 +127,24 @@ size_t read_server_response_header(int socketfd, gfcrequest_t* gfr) {
 
         // Check validity of header
         if (strcmp(scheme, SCHEME) != 0) {
-            printf("Scheme from header not GETFILE\n");
+            // printf("Scheme from header not GETFILE\n");
             response_size = -1;
         }
         else if ((status = str_to_status(strstatus)) == GF_INVALID) {
-            printf("Invalid status\n");
+            // printf("Invalid status\n");
             response_size = -1;
-        }
-        else {
+        } else {
             header = (char*)calloc(strlen(header_buffer) + 1, sizeof(char));
             strncpy(header, header_buffer, strlen(header_buffer));
             gfr->res_status = status;
 
-            printf("Response header: %s\n", header);
-            printf("Response status: %s\n", strstatus);
-            printf("Response length: %zu\n", gfr->res_length);
+            // printf("Response header: %s\n", header);
+            // printf("Response status: %s\n", strstatus);
+            // printf("Response length: %zu\n", gfr->res_length);
 
             // Call headerfunc
             if (gfr->headerfunc != 0) {
-                printf("Call headerfunc\n");
+                // printf("Call headerfunc\n");
                 (*(gfr->headerfunc))((void*)header, strlen(header), gfr->headerarg);
             }
 
@@ -182,38 +180,65 @@ int gfc_perform(gfcrequest_t **gfr){
     }
 
     if ((*gfr)->res_status == GF_OK) {
-        printf("Start reading content\n");
+        // printf("Start reading content\n");
 
         res_length = (*gfr)->res_length;
 
         // Read content
         content_buffer = malloc(res_length);
 
+        // do {
+        //     response_size = recv(socketfd, content_buffer, res_length, 0);
+        //     if (response_size < 0) {
+        //         perror("Error during content read\n");
+        //         free(content_buffer);
+        //         return -1;
+        //     }
+
+        //     // printf("Response size: %zu\n", response_size);
+        //     // printf("Content chunk and writecb called: \n");
+        //     if ((*gfr)->writefunc != 0) {
+        //         (*((*gfr)->writefunc))(content_buffer, (size_t)response_size, (*gfr)->writearg);
+        //     }
+        //     total_response_size += response_size;
+        //     res_length -= response_size;
+        //     // printf("Total response size: %zu\n", total_response_size);
+        //     // printf("----response_size: %zu\n", response_size);
+        // } while (response_size > 0);
         do {
             response_size = recv(socketfd, content_buffer, res_length, 0);
             if (response_size < 0) {
                 perror("Error during content read\n");
                 free(content_buffer);
                 return -1;
-            }
+            } else if(response_size == 0){
+                res_length = (*gfr)->res_length;
+                // continue;
+                // instead of continue, 
+                if (res_length > 0) {
+                    return -1;
+                } else {
+                    break;
+                }
 
-            printf("Response size: %zu\n", response_size);
-            printf("Content chunk and writecb called: \n");
+            }
+            // printf("Response size: %zu\n", response_size);
+            // printf("Content chunk and writecb called: \n");
             if ((*gfr)->writefunc != 0) {
                 (*((*gfr)->writefunc))(content_buffer, (size_t)response_size, (*gfr)->writearg);
             }
             total_response_size += response_size;
             res_length -= response_size;
-            printf("Total response size: %zu\n", total_response_size);
-            printf("----response_size: %zu\n", response_size);
-        } while (response_size > 0);
+            // printf("Total response size: %zu\n", total_response_size);
+            // printf("----response_size: %zu\n", response_size);
+        } while (res_length > 0);
 
         (*gfr)->total_response_size = total_response_size;
-        printf("Final total response size: %zu\n", total_response_size);
+        // printf("Final total response size: %zu\n", total_response_size);
         free(content_buffer);
 
         if (total_response_size < (*gfr)->res_length) {
-            printf("Only %zu out of %zu received\n", total_response_size, (*gfr)->res_length);
+            // printf("Only %zu out of %zu received\n", total_response_size, (*gfr)->res_length);
             return -1;
         }
     }

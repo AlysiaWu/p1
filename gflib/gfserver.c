@@ -1,7 +1,19 @@
 
 #include "gfserver-student.h"
-#define BUFSIZE 2000
+#define BUFSIZE 4000
 #define SCHEME "GETFILE"
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <netdb.h>
+#include <errno.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <getopt.h>
+// #include "content.h"
+// #include "content.c"
 
 /* 
  * Modify this file to implement the interface specified in
@@ -41,9 +53,11 @@ gfserver_t* gfserver_create(){
 }
 
 ssize_t gfs_send(gfcontext_t **ctx, const void *data, size_t len){
-    ssize_t write_size, total_write_transferred = 0;
-
+    ssize_t write_size = 0, total_write_transferred = 0;
+    // printf("gfs_send\n");
     do {
+        // printf("write_size %zd \n", write_size);
+        // printf("total_write_transferred %zd \n", total_write_transferred);
         if((write_size = write((*ctx)->client_socketfd , data , len)) < 0)
         {
             perror("Send failed");
@@ -77,10 +91,11 @@ char* status_to_string(gfstatus_t status) {
 
 ssize_t gfs_sendheader(gfcontext_t **ctx, gfstatus_t status, size_t file_len){
     char* header_buffer;
+    char* header_buffer_save;
     ssize_t write_size, total_write_size = 0, header_size;
 
     header_buffer = (char*)calloc(BUFSIZE, sizeof(char));
-
+    header_buffer_save = header_buffer;
     if (file_len == 0) {
         header_size = sprintf(header_buffer, "%s %s\r\n\r\n", SCHEME, status_to_string(status));
     }
@@ -98,45 +113,44 @@ ssize_t gfs_sendheader(gfcontext_t **ctx, gfstatus_t status, size_t file_len){
         header_size -= write_size;
         total_write_size += write_size;
     } while (write_size > 0);
-
+    free(header_buffer_save);
     return total_write_size;
 }
 
 /* Return -1 for file not found, return -2 for error */
 int parse_request(int request_socketfd, gfserver_t *gfs) {
     int return_value = 0;
+    // printf("parse req \n");
     ssize_t read_size;
     char *read_buffer, *req_buffer, *terminator_received,
             *req_scheme, *req_method, *req_path, *path_test_space, *path_test_slash;
 
     read_buffer = (char*)calloc(MAX_REQUEST_LEN, sizeof(char));
     req_buffer = (char*)calloc(MAX_REQUEST_LEN, sizeof(char));
-    printf("req_buffer %s \n", req_buffer);
+
     req_scheme = (char*)calloc(10, sizeof(char));
     req_method = (char*)calloc(10, sizeof(char));
     req_path = (char*)calloc(MAX_REQUEST_LEN, sizeof(char));
-
+    // printf("new req_buffer %s \n", req_buffer);
     //Receive request
     read_size = read(request_socketfd, read_buffer, MAX_REQUEST_LEN);
     if (read_size < 0) {
         perror("Read from request socket error\n");
         return_value = -2;
-    }
-    else {
+    } else {
         const char* terminator = "\r\n\r\n";
         // const char* terminator = "\r\r=";
         strcat(req_buffer, read_buffer);
         terminator_received = strstr(req_buffer, terminator);
-        printf("Terminator here %s \n", terminator_received);
+        // printf("Terminator here %s \n", terminator_received);
         if (terminator_received == NULL) {
             printf("Terminator not received\n");
             return_value = -1;
-        }
-        else {
+        } else {
             // Parse request
             req_buffer = strtok(read_buffer, terminator);
 
-            printf("Request: %s\n", req_buffer);
+            // printf("Request: %s\n", req_buffer);
 
             sscanf(req_buffer, "%s %s %s",
                    req_scheme,
@@ -148,23 +162,22 @@ int parse_request(int request_socketfd, gfserver_t *gfs) {
 
             // Validate request
             if (strcmp(req_scheme, SCHEME) != 0) {
-                printf("Invalid scheme received\n");
+                // printf("Invalid scheme received\n");
 
                 return_value = -1;
-            }
-            else if (strcmp(req_method, "GET") != 0) {
-                printf("Invalid method received\n");
+            } else if (strcmp(req_method, "GET") != 0) {
+                // printf("Invalid method received\n");
 
                 return_value = -1;
             }
             else if (path_test_space != NULL || path_test_slash == NULL) {
-                 printf("Invalid path received\n");
+                //  printf("Invalid path received\n");
                 return_value = -1;
             }
             else {
                 gfs->req_path = req_path;
 
-                printf("Request path: %s\n", gfs->req_path);
+                // printf("Request path: %s\n", gfs->req_path);
             }
         }
     }
@@ -178,18 +191,19 @@ int parse_request(int request_socketfd, gfserver_t *gfs) {
 
 ssize_t send_unsuccessful_response(gfcontext_t *ctx, int rc){
     char* header_buffer;
+    char* header_buffer_save;
     ssize_t write_size, total_write_size = 0;
     size_t header_size;
 
     header_buffer = (char*)calloc(BUFSIZE, sizeof(char));
-    printf("hahahah:\n");
+    // printf("hahahah:\n");
+    header_buffer_save = header_buffer;
     if (rc == -1) {
         header_size = sprintf(header_buffer, "%s %s\r\n\r\n", SCHEME, status_to_string(400));
     }
     else if (rc == -2) {
         header_size = sprintf(header_buffer, "%s %s\r\n\r\n", SCHEME, status_to_string(500));
-    }
-    else {
+    } else {
         printf("Invalid rc\n");
         exit(1);
     }
@@ -204,7 +218,7 @@ ssize_t send_unsuccessful_response(gfcontext_t *ctx, int rc){
         header_size -= write_size;
         total_write_size += write_size;
     } while (header_size > 0);
-
+    free(header_buffer_save);
     return total_write_size;
 }
 
@@ -239,7 +253,7 @@ int start_server(gfserver_t* gfs) {
         return -1;
     }
 
-    printf("Listening requests\n");
+    // printf("Listening requests\n");
 
     return socketfd;
 }
@@ -256,21 +270,22 @@ void gfserver_serve(gfserver_t **gfs){
     //Accept incoming connection
     ssize_t sockaddr_size = sizeof(struct sockaddr_in);
     while( (request_socketfd = accept(socketfd, (struct sockaddr *)&client_addr, (socklen_t*)&sockaddr_size)) ){
-        // fserver_t* gfs = (gfserver_t*)malloc(sizeof(gfserver_t));
         gfcontext_t* ctx = (gfcontext_t*)malloc(sizeof(gfcontext_t));
         ctx->client_socketfd = request_socketfd;
 
         if ((rc = parse_request(request_socketfd, *gfs)) < 0) {
-            printf("Unsuccessful response\n");
+            // printf("Unsuccessful response\n");
             send_unsuccessful_response(ctx, rc);
             gfs_abort(&ctx);
-        }
-        else {
+            free((*gfs)->req_path);
+        } else {
             printf("Handler called\n");
             (*gfs)->handler(&ctx, (*gfs)->req_path, (*gfs)->arg);
+            free((*gfs)->req_path);
+            free(ctx);
         }
     }
-
+    // printf("out of the while loop \n");
     if (request_socketfd < 0)
     {
         perror("Connection accept failed\n");
@@ -294,17 +309,12 @@ void gfserver_set_port(gfserver_t **gfs, unsigned short port){
     (*gfs)->server_addr.sin_port = htons(port);
 }
 
-
 /*
  * this routine is used to handle the getfile request
- */
-gfh_error_t gfs_handler(gfcontext_t **ctx, const char *path, void* arg) {
-    // gfh_error_t (*handler)(gfcontext_t **, const char *, void*);
-    // ctx read file per path
-    // send header
-    // read file 
-    // if successfull 
-    printf("gggggfs handler %s \n", path);
+//  */
+gfh_error_t gfs_handler(gfcontext_t **ctx, const char *path, void* arg) { 
+
+    // printf("gggggfs handler %s \n", path);
     FILE *f = fopen(path, "rb");
     //   // status file
     if (f == NULL) {
@@ -321,10 +331,12 @@ gfh_error_t gfs_handler(gfcontext_t **ctx, const char *path, void* arg) {
     fclose(f);
 
     string[fsize] = 0;
-
     gfs_sendheader(ctx, 200, fsize);
-    printf("send header %s\n", path);
+
+    // printf("send header %s\n", path);
     gfs_send(ctx, string, fsize);
-    printf("jjjjj send \n");
+    free(string);
+    // printf("jjjjj send \n");
     return 1;
+ 
 }
