@@ -1,5 +1,17 @@
 
 #include "gfserver-student.h"
+#include "steque.h"
+#include "pthread.h"
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <netdb.h>
+#include <errno.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <getopt.h>
 
 #define USAGE                                                                 \
 "usage:\n"                                                                    \
@@ -23,7 +35,12 @@ static struct option gLongOptions[] = {
 
 extern unsigned long int content_delay;
 
+typedef struct gfcontext_t {
+    int client_socketfd;
+} gfcontext_t;
+
 extern gfh_error_t gfs_handler(gfcontext_t **ctx, const char *path, void* arg);
+extern ssize_t handler_get(gfcontext_t **ctx, char *path, void* arg);
 
 static void _sig_handler(int signo){
   if ((SIGINT == signo) || (SIGTERM == signo)) {
@@ -42,6 +59,7 @@ typedef struct ClientRequest {
 steque_t* client_request_queue;
 pthread_mutex_t request_queue_mutex; // for client_request_queue
 pthread_cond_t request_queue_cv;
+
 
 
 /* Queue client request */
@@ -92,7 +110,7 @@ void *assign_worker_to_task(void *arg) {
 
         printf("[Worker thread #%ld] -- received request_path: %s\n", thread_id, request->path);
 
-        if (handler_get(request->ctx, request->path, request->arg) < 0) {
+        if (handler_get(&(request->ctx), request->path, request->arg) < 0) {
             printf("[Worker thread #%ld] -- error during handling request\n", thread_id);
         }
 

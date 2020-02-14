@@ -4,8 +4,21 @@
 
 #include "workload.h"
 #define BUFFER_SIZE 4000
+typedef struct gfcontext_t {
+    int client_socketfd;
+} gfcontext_t;
 
-ssize_t handler_get(gfcontext_t *ctx, char *path, void* arg){
+
+void gfs_abort(gfcontext_t **ctx){
+    if (close((*ctx)->client_socketfd) < 0) {
+        perror("Could not close socket\n");
+        exit(1);
+    }
+
+    free(*ctx);
+}
+
+ssize_t handler_get(gfcontext_t **ctx, char *path, void* arg){
 	int fildes;
 	size_t file_len, bytes_transferred;
 	ssize_t read_len, write_len;
